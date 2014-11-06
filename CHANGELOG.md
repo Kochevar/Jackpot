@@ -1,3 +1,8 @@
+##1.0
+###Improvement
+ - Machine choosing is now done by Multi-armed Bandit strategy.
+ - E-greedy variation applied.
+
 ##0.1
 First release
 ###The idea

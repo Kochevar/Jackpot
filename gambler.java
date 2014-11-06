@@ -1,7 +1,7 @@
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.URL;
-import java.util.Scanner;
+import java.util.Random;
 
 
 /**
@@ -12,7 +12,65 @@ import java.util.Scanner;
  */
 
 
+
 public class gambler {
+    static double[]machineProbability;
+
+    public static void main(String args[]){
+        //String adress = args[0]; //args[0]=http://celtra-jackpot.com/3
+        String adress = "http://celtra-jackpot.com/3";
+        int eps=10; //Epsilon
+
+        int machines = getHTMLresponse(adress + "/machines");
+        int pulls = getHTMLresponse(adress + "/pulls");
+        System.out.println("O vrli gambler, na voljo imaš "+machines+" avtomatov in "+pulls+" potegov.");
+
+        int[][] machineStats = new int[machines][2];   //0= uspešni potegi; 1= vsi potegi
+        for (int i=0;i<machineStats.length;i++){for (int j=0;j<machineStats[i].length;j++){machineStats[i][j]=0;}}
+        machineProbability = new double[machines];
+
+        int pullNo=1;
+        int reward=0; //bo enak kot vsota machineStats[machineCurrent][0]
+        int machineCurrent=random(machines)-1, machineLast=-1;
+        int odg;
+
+        while (true){
+            if (pullNo==pulls+1)break;
+
+            //poteg ročice
+            System.out.print(pullNo+". ");
+            odg=getHTMLresponse(adress+"/"+(machineCurrent+1)+"/"+pullNo);
+            machineStats[machineCurrent][1]++;
+            if (odg==1){
+                reward++;
+                machineStats[machineCurrent][0]++;
+            }
+            pullNo++;
+            for (int i=0;i<machineStats.length;i++) {
+                machineProbability[i] = (machineStats[i][1])==0? 0 : machineStats[i][0] / (double)(machineStats[i][1]);
+                System.out.print(machineStats[i][0] + ":" + (machineStats[i][1]));
+                System.out.printf("{%.2f} ",machineProbability[i]*100);
+            }
+
+            //izbira naslednjega avtomata
+            machineCurrent=chooseMachine(eps, machineStats, machineCurrent);
+            if (machineLast != machineCurrent) {
+                machineLast = machineCurrent;
+                System.out.println(" ["+(machineCurrent+1)+"]");
+            }
+            else System.out.println();
+        }
+
+        //Statistika
+        double max =0 ;
+        for (double aMachineProbability : machineProbability)
+            if (aMachineProbability > max)
+                max = aMachineProbability;
+        System.out.println("Dobiček: "+reward+"/"+pulls);
+        System.out.printf("Neučinkovitost: %.2f",(max-(reward/(double)pulls))*100);
+        System.out.println("%");
+        System.exit(reward);
+    }
 
     static int getHTMLresponse (String path) {
         try {
@@ -32,123 +90,46 @@ public class gambler {
         }
     }
 
-    static int returnMaxMachine(){
-        double max=machineProbability[0];
-        int index=0;
-        for (int i=0;i<machines;i++){
-            if(machineProbability[i]>max){
-                max=machineProbability[i];
-                index=i;
-            }
-        }
-        return index;
+    static int random(int max){
+        Random rand = new Random();
+        return rand.nextInt(max) + 1;
     }
-     /*
-    static void deleteTemp(){
-        for (int i=0; i<machines; i++){
-            machineTemp[i]=0;
+    static int random(int exclude, int max){
+        Random rand = new Random();
+        int r = exclude+1;
+        while (r==exclude+1)
+            r=rand.nextInt(max) + 1;
+        return r;
+    }
+
+    static int chooseMachine(int eps, int[][]stats, int machineCurrent){
+        if (random(100)<=eps){
+        //exploration
+            int r = random(machineCurrent, stats.length)-1;
+            System.out.print(" !"+(r+1)+"! ");
+            return r;
         }
 
-    }  */
-
-    static double[] machineProbability;
-    static int machines;
-    static int[] machineTemp;
-
-    public static void main(String args[]){
-        Scanner sc = new Scanner(System.in);
-        System.out.print("Vnesite naslov in številko primera (privzeto: http://celtra-jackpot.com/3): ");
-        String input =  sc.nextLine();
-        String adress = input.equals("") ? "http://celtra-jackpot.com/3" :  input;
-
-        machines = getHTMLresponse(adress + "/machines");
-        int pulls = getHTMLresponse(adress + "/pulls");
-
-        System.out.println("O vrli ver0.gambler, na voljo imaš "+machines+" avtomatov in "+pulls+" potegov.");
-
-        double magic = 10; //ker še ne znam določiti smiselnega števila iz 2. koraka, naj bo 10
-        int pullNo=1;
-
-        machineProbability = new double[machines];
-        machineTemp = new int[machines];
-        for (int i=0; i<machines; i++){
-            machineProbability[i]=0;
-            machineTemp[i]=0;
-        }
-        int gain=0;
-        int odg;
-
-
-        //SMART START
-        for (int i=0;i<magic;i++){
-            for (int m=0; m<machines; m++){
-                odg=getHTMLresponse(adress+"/"+(m+1)+"/"+pullNo);
-                pullNo++;
-                if (odg==1) {
-                    machineTemp[m]++;
-                    gain++;
+        else {
+        //exploitation
+            int index=0;
+            double max = machineProbability[index];
+            int min=0;
+            for (int i=0; i<machineProbability.length; i++) {
+                if (machineProbability[i] > max) {
+                    max = machineProbability[i];
+                    index=i;
                 }
-                //System.out.println((m+1)+": "+odg);
-
+                else if (machineProbability[i] == max){
+                    for (int j=0; j<stats.length; j++){
+                        if (stats[j][1]<min) {
+                            min = stats[j][i];
+                            index = j;
+                        }
+                    }
+                }
             }
+            return index;
         }
-
-        System.out.println("*Smart start*");
-        for (int i=0;i<machines;i++){
-            machineProbability[i]=machineTemp[i]/magic;
-            System.out.println(" "+(i+1)+": "+machineProbability[i]);
-        }
-        System.out.println();
-
-
-        //GAINING
-        int m=-1;
-        int count=1;
-        int old;
-        //deleteTemp();
-        while (pullNo<pulls){
-
-
-            odg=getHTMLresponse(adress+"/"+(m+1)+"/"+pullNo);
-
-            System.out.println(pullNo+" ");
-            if (odg==1) {
-                machineTemp[m]++;
-                gain++;
-            }
-
-            for (int i=0;i<machines;i++){
-                machineProbability[i]+=machineTemp[i]/count;
-                System.out.print(" "+(i+1)+": "+machineProbability[i]);
-            }
-            count++;
-            old =m;
-            m=returnMaxMachine();
-            System.out.println("M: "+m);
-            if (m != old){
-                count=1;
-                System.out.println("Izbran avtomat številka: "+(m+1));
-            }
-
-            pullNo++;
-        }
-
-        System.out.println("Dobiček: "+gain+"/"+pulls);
-
-        /*
-        int m=3;
-        for (int i=1;i<=pulls;i++){
-
-            odg=getHTMLresponse(adress+"/"+(m)+"/"+(i));
-            if (odg==1) {
-                machineTemp[m-1]++;
-                gain++;
-
-            }
-            System.out.println((machineTemp[m-1]/((double)i))*100);
-
-        }
-        System.out.println("Dobiček: "+gain+"/"+pulls);
-        */
     }
 }
