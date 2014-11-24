@@ -1,7 +1,11 @@
-##1.0
+##1.1
 ###Improvement
+ - Epsilon-decreasing variation applied.
+
+##1.0
+###Big Improvement
  - Machine choosing is now done by Multi-armed Bandit strategy.
- - E-greedy variation applied.
+ - Epsilon-greedy variation applied.
 
 ##0.1
 First release
